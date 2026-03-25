@@ -10,6 +10,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Schedule">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <style>
     /* ── THEME VARIABLES ── */
     :root {
@@ -770,6 +773,37 @@
     }
     .mini-day.is-today.has-events::after { background: rgba(0,0,0,.4); }
 
+    /* ── AUTH OVERLAY ── */
+    #authOverlay {
+      position: fixed; inset: 0; z-index: 600;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .sign-in-card {
+      background: var(--surface); border-radius: 22px; padding: 44px 40px;
+      border: 1px solid var(--border2); text-align: center;
+      display: flex; flex-direction: column; align-items: center; gap: 18px;
+      max-width: 320px; width: 90%;
+    }
+    .sign-in-logo { font-size: 36px; }
+    .sign-in-title { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 900; }
+    .sign-in-sub { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-muted); letter-spacing: .12em; text-transform: uppercase; line-height: 1.7; }
+    .sign-in-btn {
+      display: flex; align-items: center; gap: 10px; margin-top: 8px;
+      padding: 13px 24px; border-radius: 10px; width: 100%; justify-content: center;
+      background: var(--accent); color: #0D0F1A; border: none;
+      font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 600;
+      cursor: pointer; transition: filter .15s;
+    }
+    .sign-in-btn:hover { filter: brightness(1.1); }
+    .sign-out-btn {
+      font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: .1em;
+      text-transform: uppercase; padding: 5px 10px; border-radius: 20px;
+      border: 1px solid var(--border2); background: transparent; color: var(--text-muted);
+      cursor: pointer; transition: all .15s; flex-shrink: 0; display: none;
+    }
+    .sign-out-btn:hover { border-color: var(--red); color: var(--red); }
+
     /* ── SCROLLBAR ── */
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -810,6 +844,7 @@
     <button class="view-tab" data-v="year">Year</button>
   </div>
   <button class="today-btn" id="todayBtn">Today</button>
+  <button class="sign-out-btn" id="signOutBtn">Sign out</button>
   <button class="icon-btn"  id="settingsBtn" title="Settings">⚙</button>
 </header>
 
@@ -845,6 +880,19 @@
 </div>
 
 <button class="fab" id="fab">+</button>
+
+<!-- Auth Overlay -->
+<div id="authOverlay">
+  <div class="sign-in-card">
+    <div class="sign-in-logo">📅</div>
+    <div class="sign-in-title">My Schedule</div>
+    <div class="sign-in-sub">Sign in to sync your schedule<br>across all your devices</div>
+    <button class="sign-in-btn" id="signInBtn">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+</div>
 
 <!-- Event Modal -->
 <div class="modal-bg" id="modalBg">
@@ -921,6 +969,81 @@
 </div>
 
 <script>
+  /* ─── Firebase ─── */
+  firebase.initializeApp({
+    apiKey: "AIzaSyARJ4FNVCQ2pXQJ0g_peG4D4nG3eSJvAlA",
+    authDomain: "schedule-e37f2.firebaseapp.com",
+    projectId: "schedule-e37f2",
+    storageBucket: "schedule-e37f2.firebasestorage.app",
+    messagingSenderId: "774706363677",
+    appId: "1:774706363677:web:979a1110894a6f33cff5f4"
+  });
+  const db   = firebase.firestore();
+  const auth = firebase.auth();
+  let currentUser = null;
+  let _unsubEvents, _unsubConfig;
+
+  const fsEventsDoc = () => db.collection('users').doc(currentUser.uid).collection('data').doc('events');
+  const fsConfigDoc = () => db.collection('users').doc(currentUser.uid).collection('data').doc('config');
+
+  function fsSaveDay(dateKey, events) {
+    if(!currentUser) return;
+    fsEventsDoc().set({ [dateKey]: JSON.stringify(events) }, { merge: true }).catch(console.error);
+  }
+  function fsSaveConfig(key, value) {
+    if(!currentUser) return;
+    fsConfigDoc().set({ [key]: JSON.stringify(value) }, { merge: true }).catch(console.error);
+  }
+
+  async function loadFromFirestore() {
+    try {
+      const [evDoc, cfDoc] = await Promise.all([fsEventsDoc().get(), fsConfigDoc().get()]);
+      if(evDoc.exists) Object.entries(evDoc.data()).forEach(([k,v]) => localStorage.setItem(k, v));
+      if(cfDoc.exists) {
+        const d = cfDoc.data();
+        ['recur_rules','active_cats','cat_colors','todo_tasks','todo_subjects']
+          .forEach(k => { if(d[k] !== undefined) localStorage.setItem(k, d[k]); });
+      }
+    } catch(e) { console.error('Firestore load error', e); }
+  }
+
+  function setupListeners() {
+    _unsubEvents = fsEventsDoc().onSnapshot(snap => {
+      if(!snap.exists || snap.metadata.hasPendingWrites) return;
+      Object.entries(snap.data()).forEach(([k,v]) => localStorage.setItem(k, v));
+      refresh();
+    });
+    _unsubConfig = fsConfigDoc().onSnapshot(snap => {
+      if(!snap.exists || snap.metadata.hasPendingWrites) return;
+      const d = snap.data();
+      ['recur_rules','active_cats','cat_colors','todo_tasks','todo_subjects']
+        .forEach(k => { if(d[k] !== undefined) localStorage.setItem(k, d[k]); });
+      refresh(); renderTabs(); renderTasks();
+    });
+  }
+
+  auth.onAuthStateChanged(async user => {
+    currentUser = user;
+    if(user) {
+      document.getElementById('authOverlay').style.display = 'none';
+      document.getElementById('signOutBtn').style.display = '';
+      await loadFromFirestore();
+      setupListeners();
+      refresh(); renderTabs(); renderTasks();
+      setTimeout(scrollToNow, 80);
+    } else {
+      document.getElementById('authOverlay').style.display = 'flex';
+      document.getElementById('signOutBtn').style.display = 'none';
+      if(_unsubEvents) _unsubEvents();
+      if(_unsubConfig) _unsubConfig();
+    }
+  });
+
+  document.getElementById('signInBtn').addEventListener('click', () => {
+    auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e => alert('Sign-in failed: ' + e.message));
+  });
+  document.getElementById('signOutBtn').addEventListener('click', () => auth.signOut());
+
   /* ─── Constants ─── */
   const START_H = 6, END_H = 23, HR_PX = 80;
   const DAYS_FULL  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -980,18 +1103,18 @@
   /* ─── Storage ─── */
   const fmtKey    = d  => d.toISOString().split('T')[0];
   const loadDay   = () => { try { return JSON.parse(localStorage.getItem('sched_'+fmtKey(curDate)))||[]; } catch { return []; } };
-  const saveDay   = ev => localStorage.setItem('sched_'+fmtKey(curDate), JSON.stringify(ev));
+  const saveDay   = ev => { const k='sched_'+fmtKey(curDate); localStorage.setItem(k, JSON.stringify(ev)); fsSaveDay(k, ev); };
   const loadRules = () => { try { return JSON.parse(localStorage.getItem('recur_rules'))||[]; } catch { return []; } };
-  const saveRules = rs => localStorage.setItem('recur_rules', JSON.stringify(rs));
+  const saveRules = rs => { localStorage.setItem('recur_rules', JSON.stringify(rs)); fsSaveConfig('recur_rules', rs); };
   const uid       = () => Date.now().toString(36)+Math.random().toString(36).slice(2);
 
   /* ─── Color management ─── */
   function getCatColors()  { try { return JSON.parse(localStorage.getItem('cat_colors'))||{}; } catch { return {}; } }
-  function saveCatColor(id,color) { const c=getCatColors(); c[id]=color; localStorage.setItem('cat_colors',JSON.stringify(c)); }
-  function resetCatColors() { localStorage.removeItem('cat_colors'); }
+  function saveCatColor(id,color) { const c=getCatColors(); c[id]=color; localStorage.setItem('cat_colors',JSON.stringify(c)); fsSaveConfig('cat_colors',c); }
+  function resetCatColors() { localStorage.removeItem('cat_colors'); fsSaveConfig('cat_colors',{}); }
 
   function getActiveCats()  { try { const s=JSON.parse(localStorage.getItem('active_cats')); return (s&&s.length)?s:[...CATS]; } catch { return [...CATS]; } }
-  function saveActiveCats(cats) { localStorage.setItem('active_cats', JSON.stringify(cats)); }
+  function saveActiveCats(cats) { localStorage.setItem('active_cats', JSON.stringify(cats)); fsSaveConfig('active_cats', cats); }
   function getCatColor(id)  { return getCatColors()[id] || getActiveCats().find(c=>c.id===id)?.color || CATS.find(c=>c.id===id)?.color || '#94A3B8'; }
 
   /* ─── Theme ─── */
@@ -1910,9 +2033,9 @@
 
   /* ─── To-Do ─── */
   const loadSubjects = () => { try { return JSON.parse(localStorage.getItem('todo_subjects'))||['General']; } catch { return ['General']; } };
-  const saveSubjects = s  => localStorage.setItem('todo_subjects', JSON.stringify(s));
+  const saveSubjects = s  => { localStorage.setItem('todo_subjects', JSON.stringify(s)); fsSaveConfig('todo_subjects', s); };
   const loadTasks    = () => { try { return JSON.parse(localStorage.getItem('todo_tasks'))||[]; } catch { return []; } };
-  const saveTasks    = t  => localStorage.setItem('todo_tasks', JSON.stringify(t));
+  const saveTasks    = t  => { localStorage.setItem('todo_tasks', JSON.stringify(t)); fsSaveConfig('todo_tasks', t); };
 
   let activeSub = loadSubjects()[0];
 
@@ -2023,10 +2146,8 @@
 
   /* ─── Init ─── */
   applyTheme(getTheme());
-  refresh();
-  renderTabs(); renderTasks();
-  setTimeout(scrollToNow, 80);
-  setInterval(()=>{ refresh(); }, 60000);
+  // refresh/renderTabs/renderTasks/scrollToNow are called by onAuthStateChanged after sign-in
+  setInterval(()=>{ if(currentUser) refresh(); }, 60000);
 </script>
 </body>
 </html>
