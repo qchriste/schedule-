@@ -1291,7 +1291,8 @@
     const events  = getEvents();
     const layout  = computeLayout(events);
     const colEl   = document.getElementById('eventsCol');
-    const colW    = colEl.offsetWidth;
+    const colW    = colEl.offsetWidth || colEl.getBoundingClientRect().width;
+    if(!colW) { requestAnimationFrame(renderEvents); return; }
     const margin  = 6, gap = 3;
 
     events.forEach(ev => {
@@ -1306,7 +1307,7 @@
 
       const el=document.createElement('div'); el.className='evt';
       el.style.top=top+'px'; el.style.height=ht+'px'; el.style.backgroundColor=color;
-      el.style.left=leftPx+'px'; el.style.width=evW+'px';
+      el.style.left=(leftPx/colW*100)+'%'; el.style.width=(evW/colW*100)+'%';
       el.dataset.id=ev.id; if(ev._rule) el.dataset.rule='1';
 
       const t=document.createElement('div'); t.className='evt-title'; t.textContent=ev.title||getActiveCats().find(c=>c.id===ev.cat)?.label||CATS.find(c=>c.id===ev.cat)?.label||''; el.appendChild(t);
@@ -1814,7 +1815,8 @@
       const ov = document.getElementById(`wkOv${di}`);
       const col = document.getElementById(`wkCol${di}`);
       if(!ov || !col) return;
-      const colW = col.offsetWidth;
+      const colW = col.offsetWidth || col.getBoundingClientRect().width;
+      if(!colW) return;
       const layout = computeLayout(events);
       const margin = 2, gap = 2;
       events.forEach(ev => {
@@ -1827,7 +1829,7 @@
         const ht = Math.max(((eMin-sMin)/60)*WK_HR_PX, 14);
         const el = document.createElement('div');
         el.className = 'week-evt';
-        el.style.cssText = `top:${top}px;height:${ht}px;background:${color};left:${leftPx}px;width:${evW}px;`;
+        el.style.cssText = `top:${top}px;height:${ht}px;background:${color};left:${(leftPx/colW*100).toFixed(2)}%;width:${(evW/colW*100).toFixed(2)}%;`;
         const title = document.createElement('div');
         title.className = 'week-evt-title';
         title.textContent = ev.title || getActiveCats().find(c=>c.id===ev.cat)?.label || CATS.find(c=>c.id===ev.cat)?.label || '';
