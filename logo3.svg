@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 265" width="200" height="265">
+  <defs>
+    <!-- Clip everything inside the icon boundary -->
+    <clipPath id="ic">
+      <rect x="20" y="38" width="160" height="160" rx="34"/>
+    </clipPath>
+  </defs>
+
+  <!-- Warm beige background -->
+  <rect width="200" height="265" fill="#E8DCC8"/>
+
+  <!-- Nub — pill cap above icon, like a physical button -->
+  <rect x="82" y="16" width="36" height="26" rx="13" fill="#111"/>
+  <!-- Inner highlight to give it depth -->
+  <ellipse cx="100" cy="29" rx="10" ry="6" fill="#2a2420" opacity="0.55"/>
+
+  <!-- Icon: black rounded square body -->
+  <rect x="20" y="38" width="160" height="160" rx="34" fill="#111"/>
+
+  <!-- Large cream circle — upper-right, clipped to icon -->
+  <!-- Positioned so it overlaps the top rows of the grid naturally -->
+  <circle cx="150" cy="68" r="74" fill="#EDE0C4" clip-path="url(#ic)"/>
+
+  <!-- 3×4 calendar grid — lower-left, clipped to icon -->
+  <!-- Rows at y=74,100,126,152 — circle covers top-right cells -->
+  <g clip-path="url(#ic)" fill="#C8B898">
+    <!-- Row 1 (top-right cell covered by circle) -->
+    <rect x="30" y="74"  width="22" height="22" rx="5"/>
+    <rect x="58" y="74"  width="22" height="22" rx="5"/>
+    <rect x="86" y="74"  width="22" height="22" rx="5"/>
+    <!-- Row 2 (top-right cell covered by circle) -->
+    <rect x="30" y="100" width="22" height="22" rx="5"/>
+    <rect x="58" y="100" width="22" height="22" rx="5"/>
+    <rect x="86" y="100" width="22" height="22" rx="5"/>
+    <!-- Row 3 -->
+    <rect x="30" y="126" width="22" height="22" rx="5"/>
+    <rect x="58" y="126" width="22" height="22" rx="5"/>
+    <rect x="86" y="126" width="22" height="22" rx="5"/>
+    <!-- Row 4 (bottom) -->
+    <rect x="30" y="152" width="22" height="22" rx="5"/>
+    <rect x="58" y="152" width="22" height="22" rx="5"/>
+    <rect x="86" y="152" width="22" height="22" rx="5"/>
+  </g>
+
+  <!-- Subtle smile arc near bottom of icon -->
+  <path d="M 48,181 Q 100,194 152,181"
+    stroke="#C8B898" stroke-width="2.5" fill="none"
+    stroke-linecap="round" clip-path="url(#ic)"/>
+
+  <!-- Wordmark -->
+  <text
+    x="100" y="236"
+    text-anchor="middle"
+    font-family="'Playfair Display', Georgia, 'Times New Roman', serif"
+    font-size="23" font-weight="700"
+    fill="#111" letter-spacing="1.5">Time Bloc</text>
+</svg>
